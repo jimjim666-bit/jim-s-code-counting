@@ -1,0 +1,13 @@
+# Visual Studio
+.vs/
+x64/
+Debug/
+Release/
+*.obj
+*.exe
+*.pdb
+*.ilk
+*.log
+#系统文件
+.DS_Store
+Thumbs.db
