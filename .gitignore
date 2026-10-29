@@ -1,0 +1,14 @@
+.vs/
+.vscode/
+x64/
+Debug/
+Release/
+*.obj
+*.pdb
+*.ilk
+*.log
+*.idb
+*.exe.manifest
+
+.DS_Store
+Thumbs.db
