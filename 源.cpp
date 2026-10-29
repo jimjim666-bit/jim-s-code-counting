@@ -19,15 +19,12 @@ using namespace std;
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "ole32.lib")
 
-// 开启 Windows 通用控件 6.0 样式
 #pragma comment(linker, "\"/manifestdependency:type='win32' \
 name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
 processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
-// 本程序是 Windows 图形界面程序，入口为 WinMain
 #pragma comment(linker, "/SUBSYSTEM:WINDOWS")
 
-// ---------- 各语言统计结果 ----------
 struct LangStat {
     int files = 0;
     int blank = 0;
@@ -35,12 +32,9 @@ struct LangStat {
     int code = 0;
 };
 
-// 支持统计的语言
 enum Lang { LANG_C = 0, LANG_CPP, LANG_JAVA, LANG_PY, LANG_COUNT };
 static const wchar_t* LANG_NAME[LANG_COUNT] = { L"C", L"C++", L"Java", L"Python" };
 
-// ---------- C / C++ / Java 行统计 ----------
-// 状态: 0=普通代码, 1=块注释内, 2=双引号字符串, 3=行注释内(//), 4=单引号字符字面量
 static void CountCStyle(const string& text, LangStat& st)
 {
     int state = 0;
@@ -53,7 +47,7 @@ static void CountCStyle(const string& text, LangStat& st)
         else st.code++;
         lineHasCode = lineHasComment = false;
         lineIsBlank = true;
-        if (state == 3) state = 0; // 行注释随换行结束；其余状态跨换行保留
+        if (state == 3) state = 0;
     };
 
     while (i < text.size()) {
@@ -63,29 +57,28 @@ static void CountCStyle(const string& text, LangStat& st)
 
         if (!isspace((unsigned char)c)) lineIsBlank = false;
 
-        if (state == 3) { // 行注释内
+        if (state == 3) {
             lineHasComment = true;
             i++; continue;
         }
-        if (state == 1) { // 块注释内
+        if (state == 1) {
             lineHasComment = true;
             if (c == '*' && i + 1 < text.size() && text[i + 1] == '/') { state = 0; i += 2; continue; }
             i++; continue;
         }
-        if (state == 2) { // 双引号字符串内
+        if (state == 2) {
             lineHasCode = true;
             if (c == '\\' && i + 1 < text.size()) { i += 2; continue; }
             if (c == '"') state = 0;
             i++; continue;
         }
-        if (state == 4) { // 单引号字符字面量内
+        if (state == 4) {
             lineHasCode = true;
             if (c == '\\' && i + 1 < text.size()) { i += 2; continue; }
             if (c == '\'') state = 0;
             i++; continue;
         }
 
-        // state == 0
         if (c == '/' && i + 1 < text.size() && text[i + 1] == '/') {
             lineHasComment = true; state = 3; i += 2; continue;
         }
@@ -100,12 +93,10 @@ static void CountCStyle(const string& text, LangStat& st)
     flushLine();
 }
 
-// ---------- Python 行统计 ----------
 static void CountPython(const string& text, LangStat& st)
 {
-    // # 为注释；三引号字符串按文档注释处理
-    int triple = 0; // 0=普通, 1=单三引号, 2=双三引号
-    int lineCmt = 0; // 1=当前行处于 # 注释中
+    int triple = 0;
+    int lineCmt = 0;
     size_t i = 0;
     bool lineHasCode = false, lineHasComment = false, lineIsBlank = true;
 
@@ -114,7 +105,7 @@ static void CountPython(const string& text, LangStat& st)
         else if (lineHasComment && !lineHasCode) st.comment++;
         else st.code++;
         lineHasCode = lineHasComment = false; lineIsBlank = true;
-        lineCmt = 0; // # 注释随换行结束；三引号跨换行保留
+        lineCmt = 0;
     };
 
     while (i < text.size()) {
@@ -148,7 +139,6 @@ static void CountPython(const string& text, LangStat& st)
     flushLine();
 }
 
-// ---------- 按扩展名判断语言 ----------
 static Lang DetectLang(const wstring& ext)
 {
     if (ext == L".c" || ext == L".h") return LANG_C;
@@ -158,7 +148,6 @@ static Lang DetectLang(const wstring& ext)
     return LANG_COUNT;
 }
 
-// ---------- 递归遍历目录 ----------
 static void ScanDir(const wstring& dir, LangStat stats[LANG_COUNT])
 {
     vector<wstring> subdirs;
@@ -185,7 +174,6 @@ static void ScanDir(const wstring& dir, LangStat stats[LANG_COUNT])
             if (!f) continue;
             ostringstream ss; ss << f.rdbuf();
             string content = ss.str();
-            // 去掉 UTF-8 BOM
             if (content.size() >= 3 && (unsigned char)content[0] == 0xEF
                 && (unsigned char)content[1] == 0xBB && (unsigned char)content[2] == 0xBF)
                 content.erase(0, 3);
@@ -200,7 +188,6 @@ static void ScanDir(const wstring& dir, LangStat stats[LANG_COUNT])
     for (auto& d : subdirs) ScanDir(d, stats);
 }
 
-// ---------- 全局窗口控件 ----------
 static HWND g_hWnd;
 static HWND g_hEdit, g_hList, g_hBtnScan, g_hBrowse, g_hStatus;
 static HFONT g_hFont;
@@ -219,7 +206,6 @@ static void DoScan()
     LangStat stats[LANG_COUNT] = {};
     ScanDir(dir, stats);
 
-    // 刷新 ListView
     ListView_DeleteAllItems(g_hList);
     LVITEMW item = {};
     item.mask = LVIF_TEXT;
@@ -244,7 +230,6 @@ static void DoScan()
         total.comment += stats[i].comment;
         total.code += stats[i].code;
     }
-    // 合计行
     int row = LANG_COUNT;
     wchar_t buf[64];
     item.iItem = row;
@@ -309,10 +294,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             10, 50, 700, 380, hWnd, (HMENU)1004,
             ((LPCREATESTRUCTW)lParam)->hInstance, NULL);
 
-        // 设置 ListView 样式
         ListView_SetExtendedListViewStyle(g_hList, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
 
-        // 添加列
         LVCOLUMNW col = {};
         col.mask = LVCF_FMT | LVCF_TEXT | LVCF_WIDTH;
         col.fmt = LVCFMT_LEFT;
@@ -334,11 +317,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             10, 445, 700, 20, hWnd, (HMENU)1005,
             ((LPCREATESTRUCTW)lParam)->hInstance, NULL);
 
-        // 初始填入当前目录
         wchar_t cwd[MAX_PATH]; GetCurrentDirectoryW(MAX_PATH, cwd);
         SetWindowTextW(g_hEdit, cwd);
 
-        // 统一字体: 微软雅黑 9pt
         g_hFont = CreateFontW(-15, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
             DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
             CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei");

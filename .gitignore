@@ -1,4 +1,3 @@
-# Visual Studio / MSVC 中间产物
 .vs/
 x64/
 Debug/
@@ -9,8 +8,5 @@ Release/
 *.log
 *.idb
 
-# 注意：bin/ 目录下预先编译好的 exe 需要保留，不忽略 *.exe
-
-# 系统文件
 .DS_Store
 Thumbs.db
