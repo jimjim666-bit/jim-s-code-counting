@@ -1,5 +1,6 @@
-#define UNICODE
+ï»¿#define UNICODE
 #define _UNICODE
+
 #include <windows.h>
 #include <windowsx.h>
 #include <commctrl.h>
@@ -7,7 +8,6 @@
 #include <shobjidl.h>
 #include <string>
 #include <vector>
-#include <map>
 #include <fstream>
 #include <sstream>
 #include <cctype>
@@ -19,14 +19,15 @@ using namespace std;
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "ole32.lib")
 
-#pragma comment(linker,"\"/manifestdependency:type='win32' \
+// å¼€å¯ Windows é€šç”¨æ§ä»¶ 6.0 æ ·å¼
+#pragma comment(linker, "\"/manifestdependency:type='win32' \
 name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
 processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
-// ×Ô¶¯Ö¸¶¨ Windows ×ÓÏµÍ³, ÓÃ»§ÎŞĞèÔÚÏîÄ¿ÊôĞÔÀï¸Ä
+// æœ¬ç¨‹åºæ˜¯ Windows å›¾å½¢ç•Œé¢ç¨‹åºï¼Œå…¥å£ä¸º WinMain
 #pragma comment(linker, "/SUBSYSTEM:WINDOWS")
 
-// ---------- Í³¼Æ½á¹û ----------
+// ---------- å„è¯­è¨€ç»Ÿè®¡ç»“æœ ----------
 struct LangStat {
     int files = 0;
     int blank = 0;
@@ -34,12 +35,12 @@ struct LangStat {
     int code = 0;
 };
 
-// ÓïÑÔÃ¶¾Ù
+// æ”¯æŒç»Ÿè®¡çš„è¯­è¨€
 enum Lang { LANG_C = 0, LANG_CPP, LANG_JAVA, LANG_PY, LANG_COUNT };
 static const wchar_t* LANG_NAME[LANG_COUNT] = { L"C", L"C++", L"Java", L"Python" };
 
-// ---------- C/C++/Java ·ç¸ñÍ³¼Æ ----------
-// ×´Ì¬: 0=Õı³£, 1=¿é×¢ÊÍÖĞ, 2=×Ö·û´®ÖĞ
+// ---------- C / C++ / Java è¡Œç»Ÿè®¡ ----------
+// çŠ¶æ€: 0=æ™®é€šä»£ç , 1=å—æ³¨é‡Šå†…, 2=å­—ç¬¦ä¸²å†…
 static void CountCStyle(const string& text, LangStat& st)
 {
     int state = 0;
@@ -52,7 +53,7 @@ static void CountCStyle(const string& text, LangStat& st)
         else st.code++;
         lineHasCode = lineHasComment = false;
         lineIsBlank = true;
-        };
+    };
 
     while (i < text.size()) {
         char c = text[i];
@@ -61,12 +62,12 @@ static void CountCStyle(const string& text, LangStat& st)
 
         if (!isspace((unsigned char)c)) lineIsBlank = false;
 
-        if (state == 1) { // ¿é×¢ÊÍÖĞ
+        if (state == 1) { // å—æ³¨é‡Šå†…
             lineHasComment = true;
             if (c == '*' && i + 1 < text.size() && text[i + 1] == '/') { state = 0; i += 2; continue; }
             i++; continue;
         }
-        if (state == 2) { // ×Ö·û´®ÖĞ
+        if (state == 2) { // å­—ç¬¦ä¸²å†…
             lineHasCode = true;
             if (c == '\\' && i + 1 < text.size()) { i += 2; continue; }
             if (c == '"') state = 0;
@@ -80,6 +81,7 @@ static void CountCStyle(const string& text, LangStat& st)
         if (c == '/' && i + 1 < text.size() && text[i + 1] == '*') {
             lineHasComment = true; state = 1; i += 2; continue;
         }
+        if (c == '\'') { state = 2; lineHasCode = true; i++; continue; }
         if (c == '"') { state = 2; lineHasCode = true; i++; continue; }
         if (!isspace((unsigned char)c)) lineHasCode = true;
         i++;
@@ -87,11 +89,11 @@ static void CountCStyle(const string& text, LangStat& st)
     flushLine();
 }
 
-// ---------- Python Í³¼Æ ----------
+// ---------- Python è¡Œç»Ÿè®¡ ----------
 static void CountPython(const string& text, LangStat& st)
 {
-    // ¼ò»¯: # ×¢ÊÍ, ÈıÒıºÅ×Ö·û´®ÊÓÎªÎÄµµ×¢ÊÍ¿é
-    int triple = 0; // 0=ÎŞ, 1=µ¥ÒıºÅÈı, 2=Ë«ÒıºÅÈı
+    // # ä¸ºæ³¨é‡Šï¼›ä¸‰å¼•å·å­—ç¬¦ä¸²æŒ‰æ–‡æ¡£æ³¨é‡Šå¤„ç†
+    int triple = 0; // 0=æ™®é€š, 1=å•ä¸‰å¼•å·, 2=åŒä¸‰å¼•å·
     size_t i = 0;
     bool lineHasCode = false, lineHasComment = false, lineIsBlank = true;
 
@@ -100,7 +102,7 @@ static void CountPython(const string& text, LangStat& st)
         else if (lineHasComment && !lineHasCode) st.comment++;
         else st.code++;
         lineHasCode = lineHasComment = false; lineIsBlank = true;
-        };
+    };
 
     while (i < text.size()) {
         char c = text[i];
@@ -128,7 +130,7 @@ static void CountPython(const string& text, LangStat& st)
     flushLine();
 }
 
-// ---------- °´À©Õ¹ÃûÅĞ¶ÏÓïÑÔ ----------
+// ---------- æŒ‰æ‰©å±•ååˆ¤æ–­è¯­è¨€ ----------
 static Lang DetectLang(const wstring& ext)
 {
     if (ext == L".c" || ext == L".h") return LANG_C;
@@ -138,7 +140,7 @@ static Lang DetectLang(const wstring& ext)
     return LANG_COUNT;
 }
 
-// ---------- µİ¹é±éÀúÄ¿Â¼ ----------
+// ---------- é€’å½’éå†ç›®å½• ----------
 static void ScanDir(const wstring& dir, LangStat stats[LANG_COUNT])
 {
     vector<wstring> subdirs;
@@ -165,7 +167,7 @@ static void ScanDir(const wstring& dir, LangStat stats[LANG_COUNT])
             if (!f) continue;
             ostringstream ss; ss << f.rdbuf();
             string content = ss.str();
-            // È¥µô UTF-8 BOM
+            // å»æ‰ UTF-8 BOM
             if (content.size() >= 3 && (unsigned char)content[0] == 0xEF
                 && (unsigned char)content[1] == 0xBB && (unsigned char)content[2] == 0xBF)
                 content.erase(0, 3);
@@ -180,7 +182,7 @@ static void ScanDir(const wstring& dir, LangStat stats[LANG_COUNT])
     for (auto& d : subdirs) ScanDir(d, stats);
 }
 
-// ---------- È«¾Ö ----------
+// ---------- å…¨å±€çª—å£æ§ä»¶ ----------
 static HWND g_hWnd;
 static HWND g_hEdit, g_hList, g_hBtnScan, g_hBrowse, g_hStatus;
 static HFONT g_hFont;
@@ -199,7 +201,7 @@ static void DoScan()
     LangStat stats[LANG_COUNT] = {};
     ScanDir(dir, stats);
 
-    // Ìî³ä ListView
+    // åˆ·æ–° ListView
     ListView_DeleteAllItems(g_hList);
     LVITEMW item = {};
     item.mask = LVIF_TEXT;
@@ -224,7 +226,7 @@ static void DoScan()
         total.comment += stats[i].comment;
         total.code += stats[i].code;
     }
-    // ºÏ¼ÆĞĞ
+    // åˆè®¡è¡Œ
     int row = LANG_COUNT;
     wchar_t buf[64];
     item.iItem = row;
@@ -235,7 +237,7 @@ static void DoScan()
     wsprintfW(buf, L"%d", total.comment); ListView_SetItemText(g_hList, row, 3, buf);
     wsprintfW(buf, L"%d", total.code);    ListView_SetItemText(g_hList, row, 4, buf);
 
-    wsprintfW(buf, L"É¨ÃèÍê³É: %s  |  %d ¸öÎÄ¼ş, %d ĞĞ´úÂë",
+    wsprintfW(buf, L"æ‰«æå®Œæˆ: %s  |  %d ä¸ªæ–‡ä»¶, %d è¡Œä»£ç ",
         dir.c_str(), total.files, total.code);
     SetWindowTextW(g_hStatus, buf);
 }
@@ -249,7 +251,7 @@ static void BrowseFolder()
         DWORD flags;
         pfd->GetOptions(&flags);
         pfd->SetOptions(flags | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM);
-        pfd->SetTitle(L"Ñ¡ÔñÒªÍ³¼ÆµÄÄ¿Â¼");
+        pfd->SetTitle(L"é€‰æ‹©è¦ç»Ÿè®¡çš„ç›®å½•");
         hr = pfd->Show(g_hWnd);
         if (SUCCEEDED(hr)) {
             IShellItem* psi = NULL;
@@ -274,12 +276,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
             10, 10, 500, 24, hWnd, (HMENU)1001, ((LPCREATESTRUCTW)lParam)->hInstance, NULL);
 
-        g_hBrowse = CreateWindowExW(0, L"BUTTON", L"ä¯ÀÀ...",
+        g_hBrowse = CreateWindowExW(0, L"BUTTON", L"æµè§ˆ...",
             WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
             520, 8, 90, 28, hWnd, (HMENU)1002,
             ((LPCREATESTRUCTW)lParam)->hInstance, NULL);
 
-        g_hBtnScan = CreateWindowExW(0, L"BUTTON", L"¿ªÊ¼Í³¼Æ",
+        g_hBtnScan = CreateWindowExW(0, L"BUTTON", L"å¼€å§‹ç»Ÿè®¡",
             WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
             620, 8, 90, 28, hWnd, (HMENU)1003,
             ((LPCREATESTRUCTW)lParam)->hInstance, NULL);
@@ -289,10 +291,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             10, 50, 700, 380, hWnd, (HMENU)1004,
             ((LPCREATESTRUCTW)lParam)->hInstance, NULL);
 
-        // ÉèÖÃ ListView ÑùÊ½
+        // è®¾ç½® ListView æ ·å¼
         ListView_SetExtendedListViewStyle(g_hList, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
 
-        // Ìí¼ÓÁĞ
+        // æ·»åŠ åˆ—
         LVCOLUMNW col = {};
         col.mask = LVCF_FMT | LVCF_TEXT | LVCF_WIDTH;
         col.fmt = LVCFMT_LEFT;
@@ -309,16 +311,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         col.pszText = (LPWSTR)L"Code";
         ListView_InsertColumn(g_hList, 4, &col);
 
-        g_hStatus = CreateWindowExW(0, L"STATIC", L"ÊäÈëÄ¿Â¼ºóµã¡¸¿ªÊ¼Í³¼Æ¡¹, Áô¿ÕÔòÍ³¼Æµ±Ç°Ä¿Â¼",
+        g_hStatus = CreateWindowExW(0, L"STATIC", L"è¾“å…¥ç›®å½•åç‚¹ã€Œå¼€å§‹ç»Ÿè®¡ã€, ç•™ç©ºåˆ™ç»Ÿè®¡å½“å‰ç›®å½•",
             WS_CHILD | WS_VISIBLE,
             10, 445, 700, 20, hWnd, (HMENU)1005,
             ((LPCREATESTRUCTW)lParam)->hInstance, NULL);
 
-        // ³õÊ¼ÌîÈëµ±Ç°Ä¿Â¼
+        // åˆå§‹å¡«å…¥å½“å‰ç›®å½•
         wchar_t cwd[MAX_PATH]; GetCurrentDirectoryW(MAX_PATH, cwd);
         SetWindowTextW(g_hEdit, cwd);
 
-        // Í³Ò»×ÖÌå: Î¢ÈíÑÅºÚ 9pt
+        // ç»Ÿä¸€å­—ä½“: å¾®è½¯é›…é»‘ 9pt
         g_hFont = CreateFontW(-15, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
             DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
             CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei");
@@ -369,7 +371,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     int W = 740, H = 520;
     int sx = (GetSystemMetrics(SM_CXSCREEN) - W) / 2;
     int sy = (GetSystemMetrics(SM_CYSCREEN) - H) / 2;
-    g_hWnd = CreateWindowExW(0, wc.lpszClassName, L"´úÂëÁ¿Í³¼Æ",
+    g_hWnd = CreateWindowExW(0, wc.lpszClassName, L"ä»£ç é‡ç»Ÿè®¡",
         WS_OVERLAPPEDWINDOW, sx, sy, W, H,
         NULL, NULL, hInstance, NULL);
 
