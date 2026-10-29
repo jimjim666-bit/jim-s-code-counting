@@ -40,7 +40,7 @@ enum Lang { LANG_C = 0, LANG_CPP, LANG_JAVA, LANG_PY, LANG_COUNT };
 static const wchar_t* LANG_NAME[LANG_COUNT] = { L"C", L"C++", L"Java", L"Python" };
 
 // ---------- C / C++ / Java 行统计 ----------
-// 状态: 0=普通代码, 1=块注释内, 2=字符串内
+// 状态: 0=普通代码, 1=块注释内, 2=双引号字符串, 3=行注释内(//), 4=单引号字符字面量
 static void CountCStyle(const string& text, LangStat& st)
 {
     int state = 0;
@@ -53,6 +53,7 @@ static void CountCStyle(const string& text, LangStat& st)
         else st.code++;
         lineHasCode = lineHasComment = false;
         lineIsBlank = true;
+        if (state == 3) state = 0; // 行注释随换行结束；其余状态跨换行保留
     };
 
     while (i < text.size()) {
@@ -62,27 +63,37 @@ static void CountCStyle(const string& text, LangStat& st)
 
         if (!isspace((unsigned char)c)) lineIsBlank = false;
 
+        if (state == 3) { // 行注释内
+            lineHasComment = true;
+            i++; continue;
+        }
         if (state == 1) { // 块注释内
             lineHasComment = true;
             if (c == '*' && i + 1 < text.size() && text[i + 1] == '/') { state = 0; i += 2; continue; }
             i++; continue;
         }
-        if (state == 2) { // 字符串内
+        if (state == 2) { // 双引号字符串内
             lineHasCode = true;
             if (c == '\\' && i + 1 < text.size()) { i += 2; continue; }
             if (c == '"') state = 0;
             i++; continue;
         }
+        if (state == 4) { // 单引号字符字面量内
+            lineHasCode = true;
+            if (c == '\\' && i + 1 < text.size()) { i += 2; continue; }
+            if (c == '\'') state = 0;
+            i++; continue;
+        }
 
         // state == 0
         if (c == '/' && i + 1 < text.size() && text[i + 1] == '/') {
-            lineHasComment = true; i += 2; continue;
+            lineHasComment = true; state = 3; i += 2; continue;
         }
         if (c == '/' && i + 1 < text.size() && text[i + 1] == '*') {
             lineHasComment = true; state = 1; i += 2; continue;
         }
-        if (c == '\'') { state = 2; lineHasCode = true; i++; continue; }
         if (c == '"') { state = 2; lineHasCode = true; i++; continue; }
+        if (c == '\'') { state = 4; lineHasCode = true; i++; continue; }
         if (!isspace((unsigned char)c)) lineHasCode = true;
         i++;
     }
@@ -94,6 +105,7 @@ static void CountPython(const string& text, LangStat& st)
 {
     // # 为注释；三引号字符串按文档注释处理
     int triple = 0; // 0=普通, 1=单三引号, 2=双三引号
+    int lineCmt = 0; // 1=当前行处于 # 注释中
     size_t i = 0;
     bool lineHasCode = false, lineHasComment = false, lineIsBlank = true;
 
@@ -102,6 +114,7 @@ static void CountPython(const string& text, LangStat& st)
         else if (lineHasComment && !lineHasCode) st.comment++;
         else st.code++;
         lineHasCode = lineHasComment = false; lineIsBlank = true;
+        lineCmt = 0; // # 注释随换行结束；三引号跨换行保留
     };
 
     while (i < text.size()) {
@@ -110,6 +123,11 @@ static void CountPython(const string& text, LangStat& st)
         if (c == '\r') { i++; continue; }
         if (!isspace((unsigned char)c)) lineIsBlank = false;
 
+        if (lineCmt) {
+            lineHasComment = true;
+            i++; continue;
+        }
+
         if (triple) {
             lineHasComment = true;
             char q = (triple == 1) ? '\'' : '"';
@@ -117,7 +135,7 @@ static void CountPython(const string& text, LangStat& st)
             i++; continue;
         }
 
-        if (c == '#') { lineHasComment = true; i++; continue; }
+        if (c == '#') { lineHasComment = true; lineCmt = 1; i++; continue; }
         if (c == '\'' && i + 2 < text.size() && text[i + 1] == '\'' && text[i + 2] == '\'') {
             lineHasComment = true; triple = 1; i += 3; continue;
         }
